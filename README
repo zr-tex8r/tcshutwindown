@@ -1,0 +1,32 @@
+tcshutwindown パッケージ
+
+Windows をシャットダウンする。それだけ。
+
+■ 前提環境
+  処理系： LuaLaTeX / plain LuaTeX
+  OS： Windows XP 以降
+
+■ インストール
+
+TDS 1.1 に従うシステムの場合、以下のように配置する。
+$TEXBIN は luatex.exe のあるディレクトリ。
+
+  ・tcshutwindown.sty → $TEXMF/tex/lualatex/tcshutwindown
+  ・shutwindown.dll   → $TEXBIN/lib/lua
+
+■ 使用法
+
+<LuaLaTeX の場合>
+プレアンブル中に次の記述を行う。
+
+\usepackage[grace=<整数>]{tcshutwindown}
+
+<整数> はシャットダウン開始までの猶予時間（秒単位）。
+
+<plain LuaTeX の場合>
+
+\def\ShutdownGraceSeconds{<整数>}
+\input tcshutwindown.sty
+
+マクロツイーター
+http://d.hatena.ne.jp/zrbabbler/

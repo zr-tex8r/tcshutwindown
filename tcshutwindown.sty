@@ -1,0 +1,166 @@
+%
+% tcshutwindown.sty
+%
+
+%% package declaration
+\ifx\ProvidesPackage\undefined\else %<*LaTeX>
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{tcshutwindown}
+\let\tcwdlatexused=t
+\fi                                 %</LaTeX>
+%% code guards
+\edef\tcwdrestorecc{%
+\catcode32=\the\catcode32%< >
+\catcode33=\the\catcode33%<!>
+\catcode34=\the\catcode34%<">
+\catcode40=\the\catcode40%<(>
+\catcode41=\the\catcode41%<)>
+\catcode43=\the\catcode43%<+>
+\catcode44=\the\catcode44%<,>
+\catcode45=\the\catcode45%<->
+\catcode46=\the\catcode46%<.>
+\catcode60=\the\catcode60%<<>
+\catcode62=\the\catcode62%<>>
+\catcode64=\the\catcode64%<@>
+\catcode91=\the\catcode91%<[>
+\catcode93=\the\catcode93%<]>
+\newlinechar=\the\newlinechar
+\endlinechar=\the\endlinechar
+\relax}
+\catcode32=10
+\catcode33=12
+\catcode34=12
+\catcode40=12
+\catcode41=12
+\catcode43=12
+\catcode44=12
+\catcode45=12
+\catcode46=12
+\catcode60=12
+\catcode62=12
+\catcode64=11
+\catcode91=12
+\catcode93=12
+\newlinechar=10
+\endlinechar=13
+
+%---------------------------------------
+
+%% preparation
+\def\tcwd@pkgname{tcshutwindown}
+\countdef\tcwd@grace=255
+\def\tcwd@empty{}
+\let\tcwdmaybestop\tcwd@empty
+\ifx t\tcwdlatexused            %<*LaTeX>
+  \def\tcwd@error#1{%
+    \PackageError\tcwd@pkgname{#1}\@ehc
+  }%
+\else                           %<*!LaTeX>
+  \def\tcwd@error#1{%
+    \errmessage{#1}%
+  }
+\fi                             %</LaTeX>
+
+%% process options
+\ifx t\tcwdlatexused            %<*LaTeX>
+\RequirePackage{keyval}
+\DeclareOption*{%
+  \edef\tcwd@next{\noexpand\setkeys{tcwd}{\CurrentOption}}%
+  \tcwd@next
+}
+\define@key{tcwd}{grace}{%
+  \edef\ShutdownGraceSeconds{#1}%
+}
+\ProcessOptions\relax
+\fi                             %</LaTeX>
+
+%---------------------------------------
+
+%% Check \ShutdownGraceSeconds
+\edef\tcwd@grace@{%
+  \ifx\ShutdownGraceSeconds\@undefined\else
+    \ShutdownGraceSeconds\fi
+}
+\let\tcwd@stop\indent
+\ifx\tcwd@grace@\tcwd@empty
+  \tcwd@error{Grace time not specified}%
+  \tcwd@grace=-1
+\else
+  \def\tcwd@next#1\tcwd@stop{%
+    \def\tcwd@next{#1}%
+    \ifx\tcwd@next\tcwd@empty\else
+      \tcwd@grace=-1
+    \fi
+  }
+  \afterassignment\tcwd@next
+   \tcwd@grace=\tcwd@grace@ \tcwd@stop
+  \ifnum\tcwd@grace<0
+    \tcwd@error{Invalid grace time value specified}%
+  \fi
+\fi
+  % Now \tcwd@grace holds the grace second value,
+  % or a negative number if error occured.
+
+%% Check binary library is available
+\ifnum\tcwd@grace<0 \else
+  % load library in protected context
+  \directlua{
+    local ok, M = pcall(function()
+      return require "shutwindown"
+    end)
+    if not ok then tex.count[255] = -1 end
+  }
+  \ifnum\tcwd@grace<0
+    \tcwd@error{Binary library is not (properly) installed}%
+  \fi
+\fi
+
+%---------------------------------------
+\ifnum\tcwd@grace<0 \else
+
+\def\tcwdmaybestop{%
+  \batchmode
+  \ifx\@@end\@undefined \end \else \@@end \fi
+}
+\begingroup
+  \def\n{\string\n}
+  \endlinechar=10 %
+  \catcode35=12 %
+\directlua{%
+  local M = package.loaded["shutwindown"]
+  local grace = \number\tcwd@grace
+  local ticks = {
+    60, 50, 40, 30, 20, 15, 10, 5, 4, 3, 2, 1, 0
+  }
+  function M.message(sec)
+    local when = "right now"
+    if sec > 1 then when = "in "..sec.." seconds"
+    elseif sec > 0 then when = "in "..sec.." second"
+    end
+    texio.write("System will be shutdown "..when.."...\n")
+  end
+
+  -- start countdown
+  texio.write("!!!!!!!!WARNING!!!!!!!!\n")
+  M.message(grace)
+  for i = 1, #ticks do
+    local t = ticks[i]
+    if grace > t then
+      M.sleep(grace - t)
+      grace = t
+      M.message(grace)
+    end
+  end
+
+  -- start shutdown
+  texio.write("FAREWELL!\n")
+  M.shutdown()
+}%
+\endgroup%
+
+\fi
+%---------------------------------------
+%% all done
+\tcwdrestorecc
+\tcwdmaybestop
+\endinput
